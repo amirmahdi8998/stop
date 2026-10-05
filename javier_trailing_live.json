@@ -1,0 +1,11 @@
+{
+  "terminal_path": "C:\\Program Files\\LiteFinance MT5 Terminal\\terminal64.exe",
+  "account": 918850,
+  "server": "LiteFinance-MT5-Live",
+  "trade_mode": "live",
+  "symbol": "XAUUSD_i",
+  "magic": 2021,
+  "distance_points": 10,
+  "lock_points": 5,
+  "interval_seconds": 0.1
+}

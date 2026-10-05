@@ -1,4 +1,5 @@
-"""Demo-only trailing prototype inferred from observations, not Javier source."""
+"""Trailing-stop manager for existing positions, inferred from observations.
+Never opens positions; bound to the account in javier_trailing_live.json."""
 import argparse
 import json
 import logging
@@ -6,7 +7,7 @@ import math
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from javier_stops_guard import Guard, rounded, LOG
+from javier_stops_guard import Guard, rounded, LOG, expected_trade_mode
 
 
 @contextmanager
@@ -109,7 +110,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apply', action='store_true')
     args = parser.parse_args()
-    cfg = json.loads(Path(__file__).with_name('javier_trailing_demo.json').read_text())
+    cfg = json.loads(Path(__file__).with_name('javier_trailing_live.json').read_text())
     interval = cfg.get('interval_seconds', .5)
     if not math.isfinite(interval) or interval < .05:
         parser.error('Polling interval must be finite and at least 0.05 seconds')
@@ -137,18 +138,18 @@ def main():
                 time.sleep(.5)
                 continue
             if disconnected:
-                LOG.info('Connection restored; rechecking bound demo')
+                LOG.info('Connection restored; rechecking bound account')
                 disconnected = False
             # Wrong account/server still stops immediately; no automatic rebinding.
             if (account.login != cfg['account'] or account.server != cfg['server'] or
-                    account.trade_mode != m.ACCOUNT_TRADE_MODE_DEMO):
-                raise RuntimeError('Stopped: account/server is not the configured demo')
+                    account.trade_mode != expected_trade_mode(m, cfg)):
+                raise RuntimeError('Stopped: account/server/trade-mode does not match the configuration')
             allowed = bool(account and terminal and account.trade_allowed and
                            account.trade_expert and terminal.trade_allowed and
                            not terminal.tradeapi_disabled)
             if args.apply and not allowed:
                 if not waiting:
-                    LOG.info('READY demo=%s; waiting for Algo Trading permission', cfg['account'])
+                    LOG.info('READY account=%s; waiting for Algo Trading permission', cfg['account'])
                 waiting = True
                 time.sleep(.5)
                 continue
@@ -159,13 +160,13 @@ def main():
                 guard.sweep()
             except RuntimeError:
                 # A disconnect or permission change can occur between snapshots.
-                # Retry only when disconnected, or still on the exact bound demo.
+                # Retry only when disconnected, or still on the exact bound account.
                 current_account, current_terminal = m.account_info(), m.terminal_info()
                 if (current_account is not None and current_terminal is not None and
                         current_terminal.connected and
                         (current_account.login != cfg['account'] or
                          current_account.server != cfg['server'] or
-                         current_account.trade_mode != m.ACCOUNT_TRADE_MODE_DEMO)):
+                         current_account.trade_mode != expected_trade_mode(m, cfg))):
                     raise
                 LOG.warning('Temporary connection/permission failure; retrying safely')
                 time.sleep(.5)

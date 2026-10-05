@@ -1,0 +1,13 @@
+{
+  "terminal_path": "C:\\Program Files\\LiteFinance MT5 Terminal\\terminal64.exe",
+  "account": 918850,
+  "server": "LiteFinance-MT5-Live",
+  "trade_mode": "live",
+  "symbol": "XAUUSD_i",
+  "magic": 2021,
+  "atr_period": 14,
+  "atr_stop_multiple": 1.5,
+  "atr_target_multiple": 2.0,
+  "max_loss_money": 50,
+  "interval_seconds": 5
+}

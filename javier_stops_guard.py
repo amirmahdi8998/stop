@@ -1,4 +1,5 @@
-"""Manage existing Javier positions only. Never opens positions; demo accounts only."""
+"""Manage existing Javier positions only. Never opens positions; bound to the
+account configured in javier_live.json (login 918850, LiteFinance live)."""
 import argparse
 import json
 import logging
@@ -8,6 +9,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 LOG = logging.getLogger("guard")
+
+TRADE_MODE_NAMES = {
+    'demo': 'ACCOUNT_TRADE_MODE_DEMO',
+    'contest': 'ACCOUNT_TRADE_MODE_CONTEST',
+    'real': 'ACCOUNT_TRADE_MODE_REAL',
+    'live': 'ACCOUNT_TRADE_MODE_REAL',
+}
+
+
+def expected_trade_mode(mt5, cfg):
+    """Map the config's trade_mode label (demo/live) to an MT5 trade-mode constant."""
+    label = str(cfg.get('trade_mode', 'live')).strip().lower()
+    if label not in TRADE_MODE_NAMES:
+        raise ValueError('Unsupported trade_mode %r; expected one of: %s'
+                         % (label, ', '.join(sorted(TRADE_MODE_NAMES))))
+    return getattr(mt5, TRADE_MODE_NAMES[label])
 
 
 def rounded(price, tick, digits, up):
@@ -44,9 +61,9 @@ class Guard:
         terminal = self.mt5.terminal_info()
         if (account is None or terminal is None or not terminal.connected or
                 account.login != self.cfg['account'] or
-                account.trade_mode != self.mt5.ACCOUNT_TRADE_MODE_Live or
+                account.trade_mode != expected_trade_mode(self.mt5, self.cfg) or
                 account.server != self.cfg['server']):
-            raise RuntimeError("Stopped: connected account/server is not the configured demo")
+            raise RuntimeError("Stopped: connected account/server/trade-mode does not match the configuration")
         if self.apply and require_trading and (not account.trade_allowed or not account.trade_expert or
                            not terminal.trade_allowed or terminal.tradeapi_disabled):
             raise RuntimeError("Stopped: terminal/account blocks Python trading")
@@ -166,8 +183,8 @@ class Guard:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=Path(__file__).with_name('javier_demo.json'))
-    parser.add_argument('--apply', action='store_true', help='Enable SL/TP writes on the bound demo only')
+    parser.add_argument('--config', type=Path, default=Path(__file__).with_name('javier_live.json'))
+    parser.add_argument('--apply', action='store_true', help='Enable SL/TP writes on the bound account only')
     parser.add_argument('--once', action='store_true')
     args = parser.parse_args()
     cfg = json.loads(args.config.read_text(encoding='utf-8'))
@@ -184,7 +201,7 @@ def main():
         raise RuntimeError(f'MT5 initialization failed: {mt5.last_error()}')
     try:
         guard = Guard(mt5, cfg, args.apply)
-        LOG.info('Starting mode=%s bound_demo=%s', 'APPLY' if args.apply else 'DRY RUN', cfg['account'])
+        LOG.info('Starting mode=%s bound_account=%s', 'APPLY' if args.apply else 'DRY RUN', cfg['account'])
         while True:
             guard.sweep()
             if args.once:
