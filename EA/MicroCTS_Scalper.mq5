@@ -405,7 +405,7 @@ bool SpreadOK()
 void UpdateDailyStats()
   {
    MqlDateTime dt; TimeToStruct(TimeCurrent(), dt);
-   int today = dt.year * 1000 + dt.yday;
+   int today = dt.year * 1000 + dt.day_of_year;
    if(today != g_day)
      {
       g_day = today;
