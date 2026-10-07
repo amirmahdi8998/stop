@@ -1,0 +1,7 @@
+_extracted/
+__pycache__/
+*.pyc
+.venv/
+*.ex5
+javier_python_guard.log
+javier_trailing.log
